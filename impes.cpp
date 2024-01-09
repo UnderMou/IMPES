@@ -189,6 +189,10 @@ std::vector<double> addVectors(const std::vector<double>& vector1, const std::ve
 
 int main(){
 
+    // problem parameters
+    double rho_w = 1.0;
+    double rho_n = 1.0;
+
     // mesh
     int nel = 100;
     double a = 0.0;
@@ -300,7 +304,7 @@ int main(){
 
     // Solver - IMPES
     while (t <= T) { 
-        // cout << "t = " << t << endl;  
+        cout << "t = " << t << endl;  
 
         // RESOLVING FOR PRESSURE - pbar_np1    
 
@@ -326,8 +330,11 @@ int main(){
                 for (int j = 0; j < nen; j++){
                     Fe[j] = Fe[j] + f_pr(xx, rho_w, rho_n)*shg[j][l]*w[l]*h/2.0; 
 
+                    
                     for (int i = 0; i < nen; i++){
-                        // TODO: Evaluate Sw_mean elementwise    
+                        // TODO: Evaluate Sw_mean elementwise  
+                        double Sw_mean = 1.0;
+
                         Ke[i][j] = Ke[i][j] + epsilon(xx, Sw_mean, rho_w, rho_n)*(dshg[i][l]*2.0/h)*(dshg[j][l]*2.0/h)*w[l]*h/2.0;
 
                         // TODO: coding ...
@@ -336,10 +343,26 @@ int main(){
                 }
             }
 
-            // TODO: coding ...
+            // Construction of global stiffines matrix and source vector
+            for (int j = 0; j < nen; j++){
+                F[n*(nen-1)+j] += Fe[j];
+
+                for (int i = 0; i < nen; i++){
+                    K[n*(nen-1)+i][n*(nen-1)+j] += Ke[i][j];
+                }
+            }
         }
 
+        // TODO: Boundary conditions
+
+        solveLinearSystem(K, F, pbar_np1);
+
+        // RESOLVING FOR SATURATION - Sw_np1
+
         // TODO: coding ...
+
+
+        
 
         // updating results and time step
         for (int ii = 0; ii < Sw_n.size(); ii++) Sw_n[ii] = Sw_np1[ii];
