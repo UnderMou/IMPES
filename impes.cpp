@@ -49,7 +49,7 @@ void print_Vector(vector<double> F, int dim){
 double lambda_n(double Sn, double rho_n){
     // relative permeability of phase w
     // double k_rn = // TODO: Define function of Sw
-    return 1.0;//k_rn / rho_n;
+    return 2.0;//k_rn / rho_n;
 }
 
 double lambda_w(double Sw, double rho_w){
@@ -77,11 +77,20 @@ double epsilon(double xx, double Sw, double rho_w, double rho_n){   // diffusive
 
 
 double f_pr(double xx, double rho_w, double rho_n){    // source term function
-    double f_w = 0.0;
-    double f_n = 0.0;
+    double f_w = 1.0;
+    double f_n = 2.0;
 
     return f_w/rho_w + f_n/rho_n;
 }
+
+
+
+
+double dPc_dSw(double Sw){
+    return 1.0;
+}
+
+
 
 // Function to perform Gaussian elimination and back substitution
 void solveLinearSystem(vector<vector<double>>& A, vector<double>& b, vector<double>& x) {
@@ -187,6 +196,47 @@ std::vector<double> addVectors(const std::vector<double>& vector1, const std::ve
     return result;
 }
 
+// Function to subtract vector2 from vector1
+std::vector<double> subtractVectors(const std::vector<double>& vector1, const std::vector<double>& vector2) {
+    // Check if the vectors have the same size
+    size_t size1 = vector1.size();
+    size_t size2 = vector2.size();
+
+    if (size1 != size2) {
+        // Vectors have different sizes, cannot perform addition
+        throw std::invalid_argument("Vectors have different sizes, cannot perform addition");
+    }
+
+    // Resulting vector
+    std::vector<double> result(size1, 0.0);
+
+    // Perform vector addition
+    for (size_t i = 0; i < size1; ++i) {
+        result[i] = vector1[i] - vector2[i];
+    }
+
+    return result;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 int main(){
 
     // problem parameters
@@ -194,9 +244,9 @@ int main(){
     double rho_n = 1.0;
 
     // mesh
-    int nel = 100;
+    int nel = 10;
     double a = 0.0;
-    double b = 2.0;
+    double b = 1.0;
     double h = (b-a)/nel;
     cout << "h = " << h << endl;
 
@@ -266,6 +316,12 @@ int main(){
     vector<double> Fe(nen);
     Fe = init_Vector(nen);
 
+    vector<vector<double>> Ke_noCoeff(nen, vector<double>(nen));
+    Ke_noCoeff = init_Matrix(nen,nen);
+
+    vector<double> Fe_Pc(nen);
+    Fe_Pc = init_Vector(nen);
+
 
 
     // Basis functions and numerical integration points
@@ -318,6 +374,9 @@ int main(){
             Ke = init_Matrix(nen,nen);
             Fe = init_Vector(nen);
 
+            Ke_noCoeff = init_Matrix(nen,nen);
+            Fe_Pc = init_Vector(nen);
+
             for (int l = 0; l < nint; l++){
 
                 // Evaluate x as function of reference element parameter, i.e., x(t)
@@ -328,20 +387,28 @@ int main(){
 
                 // Local source vector and stiffines matrix construction 
                 for (int j = 0; j < nen; j++){
-                    Fe[j] = Fe[j] + f_pr(xx, rho_w, rho_n)*shg[j][l]*w[l]*h/2.0; 
 
+                    // TODO: Evaluate Sw_mean elementwise  
+                    double Sw_mean = 1.0;
+
+                    Fe[j] = Fe[j] + f_pr(xx, rho_w, rho_n)*shg[j][l]*w[l]*h/2.0; 
+                    
+                    Fe_Pc[j] = Fe_Pc[j] + abs_perm(xx)*(lambda_n(1.0-Sw_mean, rho_n) - lambda_w(Sw_mean,rho_w))/(2.0)*dPc_dSw(Sw_mean)*w[l]*h/2.0;
                     
                     for (int i = 0; i < nen; i++){
-                        // TODO: Evaluate Sw_mean elementwise  
-                        double Sw_mean = 1.0;
-
+                        
                         Ke[i][j] = Ke[i][j] + epsilon(xx, Sw_mean, rho_w, rho_n)*(dshg[i][l]*2.0/h)*(dshg[j][l]*2.0/h)*w[l]*h/2.0;
+
+                        Ke_noCoeff[i][j] = Ke_noCoeff[i][j] + (dshg[i][l]*2.0/h)*(dshg[j][l]*2.0/h)*w[l]*h/2.0;
 
                         // TODO: coding ...
 
                     }
                 }
             }
+            
+            Fe_Pc = matrixVectorMultiply(Ke_noCoeff, Fe_Pc);
+            Fe = subtractVectors(Fe, Fe_Pc);
 
             // Construction of global stiffines matrix and source vector
             for (int j = 0; j < nen; j++){
