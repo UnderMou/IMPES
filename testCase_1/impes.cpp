@@ -83,7 +83,7 @@ double f_pr(double xx, double t, double Sw){
 }
 
 double f_sat(double xx, double t, double Sw){
-    return (xx/4.0) * (1.0 - xx) + 0.5 * abs_perm(xx) * lambda_sum(lambda_w(Sw), lambda_n(1.0-Sw)) * t;
+    return (xx/4.0) * (1.0 - xx) + 0.5 * abs_perm(xx) * lambda_w(Sw) * t;
 }
 
 
@@ -288,7 +288,7 @@ int main(){
     // time
     double t = 0.0;
     double T = 1.0;
-    double dt = 0.001; // MENOR QUE h*h/2.0;
+    double dt = 0.0001; // LESSER THAN h*h/2.0;
     double dt_save = 0.25;
     cout << "dt = " << dt << endl;
 
@@ -323,26 +323,26 @@ int main(){
     // Solution vector - Sw
     vector<double> Sw_n(np);
     Sw_n = init_Vector(np);
-    for (int ii = 1; ii < Sw_n.size(); ii++) Sw_n[ii] = 0.5;  
+    for (int ii = 0; ii < Sw_n.size(); ii++) Sw_n[ii] = 0.5;  
     // for (int ii = 0; ii < Sw_n.size(); ii++) cout << Sw_n[ii] << ",";
     // cout << endl;
 
     vector<double> Sw_np1(np);
     Sw_np1 = init_Vector(np);
-    for (int ii = 1; ii < Sw_np1.size(); ii++) Sw_np1[ii] = 0.0;  
+    for (int ii = 0; ii < Sw_np1.size(); ii++) Sw_np1[ii] = 0.0;  
     // for (int ii = 0; ii < Sw_np1.size(); ii++) cout << Sw_np1[ii] << ",";
     // cout << endl;
 
     // Solution vector - pbar
     vector<double> pbar_n(np);
     pbar_n = init_Vector(np);
-    for (int ii = 1; ii < pbar_n.size(); ii++) pbar_n[ii] = 0.0;  
+    for (int ii = 0; ii < pbar_n.size(); ii++) pbar_n[ii] = 0.0;  
     // for (int ii = 0; ii < pbar_n.size(); ii++) cout << pbar_n[ii] << ",";
     // cout << endl;
 
     vector<double> pbar_np1(np);
     pbar_np1 = init_Vector(np);
-    for (int ii = 1; ii < pbar_np1.size(); ii++) pbar_np1[ii] = 0.0;  
+    for (int ii = 0; ii < pbar_np1.size(); ii++) pbar_np1[ii] = 0.0;  
     // for (int ii = 0; ii < pbar_np1.size(); ii++) cout << pbar_np1[ii] << ",";
     // cout << endl;
 
@@ -596,7 +596,7 @@ int main(){
             // Saving Sw field
 
             stringstream ss_Sw;
-            ss_Sw << "data_" << std::setw(4) << std::setfill('0') << nel << "t_" << std::fixed << std::setprecision(4) << t <<".csv";
+            ss_Sw << "data_Sw_" << std::setw(4) << std::setfill('0') << nel << "t_" << std::fixed << std::setprecision(4) << t <<".csv";
             string FileName_Sw = ss_Sw.str();
 
             ofstream csvFile_Sw(FileName_Sw);
@@ -633,7 +633,7 @@ int main(){
             // Saving pBar field
 
             stringstream ss_pBar;
-            ss_pBar << "data_" << std::setw(4) << std::setfill('0') << nel << "t_" << std::fixed << std::setprecision(4) << t <<".csv";
+            ss_pBar << "data_pBar_" << std::setw(4) << std::setfill('0') << nel << "t_" << std::fixed << std::setprecision(4) << t <<".csv";
             string FileName_pBar = ss_pBar.str();
 
             ofstream csvFile_pBar(FileName_pBar);
