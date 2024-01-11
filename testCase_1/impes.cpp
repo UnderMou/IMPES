@@ -83,12 +83,13 @@ double f_pr(double xx, double rho_w, double rho_n){    // source term function
     return f_w/rho_w + f_n/rho_n;
 }
 
+double f_sat(double xx, double rho_w){    // source term function
+    double f_w = 1.0;
 
-
-
-double dPc_dSw(double Sw){
-    return 1.0;
+    return f_w/rho_w;
 }
+
+
 
 
 
@@ -218,7 +219,40 @@ std::vector<double> subtractVectors(const std::vector<double>& vector1, const st
     return result;
 }
 
+// Function to multiply a scalar by a vector
+std::vector<double> scalarVectorMultiply(double scalar, const std::vector<double>& vector) {
+    // Resulting vector
+    std::vector<double> result;
 
+    // Perform scalar-vector multiplication
+    for (double val : vector) {
+        result.push_back(scalar * val);
+    }
+
+    return result;
+}
+
+// Function to multiply elementwise two vectors
+std::vector<double> multiplyElemWiseVectors(const std::vector<double>& vector1, const std::vector<double>& vector2) {
+    // Check if the vectors have the same size
+    size_t size1 = vector1.size();
+    size_t size2 = vector2.size();
+
+    if (size1 != size2) {
+        // Vectors have different sizes, cannot perform addition
+        throw std::invalid_argument("Vectors have different sizes, cannot perform addition");
+    }
+
+    // Resulting vector
+    std::vector<double> result(size1, 0.0);
+
+    // Perform vector addition
+    for (size_t i = 0; i < size1; ++i) {
+        result[i] = vector1[i] * vector2[i];
+    }
+
+    return result;
+}
 
 
 
@@ -242,9 +276,10 @@ int main(){
     // problem parameters
     double rho_w = 1.0;
     double rho_n = 1.0;
+    double phi = 0.5;
 
     // mesh
-    int nel = 10;
+    int nel = 20;
     double a = 0.0;
     double b = 1.0;
     double h = (b-a)/nel;
@@ -253,7 +288,7 @@ int main(){
     // time
     double t = 0.0;
     double T = 1.0;
-    double dt = h*h;
+    double dt = 0.05; // h*h;
     double dt_save = 0.25;
     cout << "dt = " << dt << endl;
 
@@ -277,6 +312,11 @@ int main(){
     vector<double> F(np);
     F = init_Vector(np);
     // print_Vector(F,np);
+
+    // Global mass matrix
+    vector<vector<double>> M(np, vector<double>(np));
+    M = init_Matrix(np,np);
+    // print_Matrix(M,np);
 
 
 
@@ -316,12 +356,23 @@ int main(){
     vector<double> Fe(nen);
     Fe = init_Vector(nen);
 
-    vector<vector<double>> Ke_noCoeff(nen, vector<double>(nen));
-    Ke_noCoeff = init_Matrix(nen,nen);
+    vector<vector<double>> Me(nen, vector<double>(nen));
+    Me = init_Matrix(nen,nen);
 
-    vector<double> Fe_Pc(nen);
-    Fe_Pc = init_Vector(nen);
+    // vector<vector<double>> Ke_noCoeff(nen, vector<double>(nen));
+    // Ke_noCoeff = init_Matrix(nen,nen);
 
+    // vector<double> Fe_Pc(nen);
+    // Fe_Pc = init_Vector(nen);
+
+    vector<double> Swe_h(nen);
+    Swe_h = init_Vector(nen);
+
+    vector<double> pBare_h(nen);
+    pBare_h = init_Vector(nen);
+
+    vector<double> coeffVec_1(nen);
+    coeffVec_1 = init_Vector(nen);
 
 
     // Basis functions and numerical integration points
@@ -362,53 +413,55 @@ int main(){
     while (t <= T) { 
         cout << "t = " << t << endl;  
 
-        // RESOLVING FOR PRESSURE - pbar_np1    
+        // RESOLVING FOR PRESSURE - pbar_np1 
 
         // restart global stiffines matrix and source vector
         K = init_Matrix(np,np);
         F = init_Vector(np);
+        M = init_Matrix(np,np);   
 
-        // Global problem construction
+        // Global natrices and vectors construction
         for (int n = 0; n < nel; n++){
-            // restart local (element) stiffines matrix and source vector
+            // restart local (element) matrices and vectors
             Ke = init_Matrix(nen,nen);
             Fe = init_Vector(nen);
+            Me = init_Matrix(nen,nen);
+            Swe_h = init_Vector(nen);
 
-            Ke_noCoeff = init_Matrix(nen,nen);
-            Fe_Pc = init_Vector(nen);
+            // Ke_noCoeff = init_Matrix(nen,nen);
+            // Fe_Pc = init_Vector(nen);
 
+            // Loop along integration points 
             for (int l = 0; l < nint; l++){
 
-                // Evaluate x as function of reference element parameter, i.e., x(t)
+                // Recover x and Sw at integration point
                 double xx = 0.0;
                 for (int i = 0; i < nen; i++){
                     xx += shg[i][l]*xl[n*(nen-1) + i];
+                    Swe_h[l] += shg[i][l]*Sw_n[n*(nen-1) + i];
                 }
 
                 // Local source vector and stiffines matrix construction 
                 for (int j = 0; j < nen; j++){
 
-                    // TODO: Evaluate Sw_mean elementwise  
-                    double Sw_mean = 1.0;
-
                     Fe[j] = Fe[j] + f_pr(xx, rho_w, rho_n)*shg[j][l]*w[l]*h/2.0; 
-                    
-                    Fe_Pc[j] = Fe_Pc[j] + abs_perm(xx)*(lambda_n(1.0-Sw_mean, rho_n) - lambda_w(Sw_mean,rho_w))/(2.0)*dPc_dSw(Sw_mean)*w[l]*h/2.0;
                     
                     for (int i = 0; i < nen; i++){
                         
-                        Ke[i][j] = Ke[i][j] + epsilon(xx, Sw_mean, rho_w, rho_n)*(dshg[i][l]*2.0/h)*(dshg[j][l]*2.0/h)*w[l]*h/2.0;
+                        Ke[i][j] = Ke[i][j] + epsilon(xx, Swe_h[l], rho_w, rho_n)*(dshg[i][l]*2.0/h)*(dshg[j][l]*2.0/h)*w[l]*h/2.0;
 
-                        Ke_noCoeff[i][j] = Ke_noCoeff[i][j] + (dshg[i][l]*2.0/h)*(dshg[j][l]*2.0/h)*w[l]*h/2.0;
-
-                        // TODO: coding ...
+                        // Ke_noCoeff[i][j] = Ke_noCoeff[i][j] + (dshg[i][l]*2.0/h)*(dshg[j][l]*2.0/h)*w[l]*h/2.0;
 
                     }
                 }
             }
             
-            Fe_Pc = matrixVectorMultiply(Ke_noCoeff, Fe_Pc);
-            Fe = subtractVectors(Fe, Fe_Pc);
+            // Fe_Pc = matrixVectorMultiply(Ke_noCoeff, Swe_h);
+
+            // double coeff = abs_perm(xx)*(lambda_n(1.0-Swh, rho_n) - lambda_w(Swh, rho_w))/(2.0)*dPc_dSw(Swh);
+            // Fe_Pc = scalarVectorMultiply(coeff, Fe_Pc);
+
+            // Fe = subtractVectors(Fe, Fe_Pc);
 
             // Construction of global stiffines matrix and source vector
             for (int j = 0; j < nen; j++){
@@ -420,16 +473,123 @@ int main(){
             }
         }
 
-        // TODO: Boundary conditions
+        // TODO: Boundary conditions?
+
+        double kappa_a = 1e9;
+        double kappa_b = 1e9;
+        double g_a = 0.0;   // pbar = 0.0 at boundaries
+        double g_b = 0.0;   // pbar = 0.0 at boundaries
+        double q_a = 0.0;
+        double q_b = 0.0;
+
+        K[0][0] += kappa_a;
+        K[np-1][np-1] += kappa_b;
+
+        F[0] += kappa_a*g_a + q_a;
+        F[np-1] += kappa_b*g_b + q_b;
+
+        // Solve linear system:  K * pbar_np1 = F
 
         solveLinearSystem(K, F, pbar_np1);
 
+
+
+
+
+
         // RESOLVING FOR SATURATION - Sw_np1
 
-        // TODO: coding ...
+        // restart global stiffines matrix and source vector
+        K = init_Matrix(np,np);
+        F = init_Vector(np);
+        M = init_Matrix(np,np);   
+
+        // Global natrices and vectors construction
+        for (int n = 0; n < nel; n++){
+            // restart local (element) matrices and vectors
+            Ke = init_Matrix(nen,nen);
+            Fe = init_Vector(nen);
+            Me = init_Matrix(nen,nen);
+            Swe_h = init_Vector(nen);
+            pBare_h = init_Vector(nen);
+            Ke_noCoeff = init_Matrix(nen,nen);
+
+            // Loop along integration points 
+            for (int l = 0; l < nint; l++){
+
+                // Recover x and Sw at integration point
+                double xx = 0.0;
+                for (int i = 0; i < nen; i++){
+                    xx += shg[i][l]*xl[n*(nen-1) + i];
+                    Swe_h[l] += shg[i][l]*Sw_n[n*(nen-1) + i];
+                    pBare_h[l] += shg[i][l]*pbar_np1[n*(nen-1) + i];
+                }
+
+                coeffVec_1[l] = abs_perm(xx)*lambda_w(Swe_h[l], rho_w);
+
+                // Local source vector and stiffines matrix construction 
+                for (int j = 0; j < nen; j++){
+
+                    Fe[j] = Fe[j] + f_sat(xx, rho_w, rho_n)*shg[j][l]*w[l]*h/2.0; 
+                    
+                    for (int i = 0; i < nen; i++){
+                        
+                        // Ke[i][j] = Ke[i][j] + epsilon(xx, Swe_h[l], rho_w, rho_n)*(dshg[i][l]*2.0/h)*(dshg[j][l]*2.0/h)*w[l]*h/2.0;
+
+                        Me[i][j] = Me[i][j] + (phi/dt)*shg[i][l]*shg[j][l]*w[l]*h/2;
+
+                        Ke_noCoeff[i][j] = Ke_noCoeff[i][j] + (dshg[i][l]*2.0/h)*(dshg[j][l]*2.0/h)*w[l]*h/2.0;
+
+                    }
+                }
+            }
+            
+            Fe = addVectors(
+                Fe,
+                matrixVectorMultiply(Me, Swe_h)
+            );
+
+            Fe = subtractVectors(
+                Fe,
+                multiplyElemWiseVectors(
+                    coeffVec_1,
+                    matrixVectorMultiply(Ke_noCoeff, pBare_h)
+                )
+            );
+
+            // Construction of global stiffines matrix and source vector
+            for (int j = 0; j < nen; j++){
+                F[n*(nen-1)+j] += Fe[j];
+
+                for (int i = 0; i < nen; i++){
+                    K[n*(nen-1)+i][n*(nen-1)+j] += Ke[i][j];
+                }
+            }
+        }
+
+        // TODO: Boundary conditions?
+
+        double kappa_a = 1e9;
+        double kappa_b = 1e9;
+        double g_a = 0.0;   // pbar = 0.0 at boundaries
+        double g_b = 0.0;   // pbar = 0.0 at boundaries
+        double q_a = 0.0;
+        double q_b = 0.0;
+
+        K[0][0] += kappa_a;
+        K[np-1][np-1] += kappa_b;
+
+        F[0] += kappa_a*g_a + q_a;
+        F[np-1] += kappa_b*g_b + q_b;
+
+        // Solve linear system:  K * pbar_np1 = F
+
+        solveLinearSystem(K, F, pbar_np1);
 
 
         
+
+
 
         // updating results and time step
         for (int ii = 0; ii < Sw_n.size(); ii++) Sw_n[ii] = Sw_np1[ii];
