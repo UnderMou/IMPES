@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # rm plotdata_*
-# rm data_*
+rm data_*
 
 g++ -o impes impes.cpp
 ./impes

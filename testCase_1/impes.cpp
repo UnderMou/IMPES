@@ -39,20 +39,22 @@ void print_Matrix(vector<vector<double>> M, int dim){
 
 void print_Vector(vector<double> F, int dim){
     for (int i = 0; i < dim; i++){
-        cout << F[i] << "\n";
+        cout << F[i] << " ";
     }
+    cout << endl;
+    cout << endl;
 }
 
 
 
 
-double lambda_n(double Sn, double rho_n){
+double lambda_n(double Sn){
     // relative permeability of phase w
     // double k_rn = // TODO: Define function of Sw
-    return 2.0;//k_rn / rho_n;
+    return 1.0;//k_rn / rho_n;
 }
 
-double lambda_w(double Sw, double rho_w){
+double lambda_w(double Sw){
     // relative permeability of phase w
     // double k_rw = // TODO: Define function of Sw
     return 1.0;//k_rw / rho_w;
@@ -67,8 +69,8 @@ double lambda_sum(double lambda_w, double lambda_n){
 }
 
 double epsilon(double xx, double Sw, double rho_w, double rho_n){   // diffusive coefficient function
-    double lamb_n = lambda_n(1.0-Sw,rho_n);
-    double lamb_w = lambda_w(Sw,rho_w);
+    double lamb_n = lambda_n(1.0-Sw);
+    double lamb_w = lambda_w(Sw);
     return abs_perm(xx) * lambda_sum(lamb_w,lamb_n);
 }
 
@@ -76,17 +78,12 @@ double epsilon(double xx, double Sw, double rho_w, double rho_n){   // diffusive
 
 
 
-double f_pr(double xx, double rho_w, double rho_n){    // source term function
-    double f_w = 1.0;
-    double f_n = 2.0;
-
-    return f_w/rho_w + f_n/rho_n;
+double f_pr(double xx, double t, double Sw){
+    return 0.5 * abs_perm(xx) * lambda_sum(lambda_w(Sw),lambda_n(1.0-Sw)) * t;
 }
 
-double f_sat(double xx, double rho_w){    // source term function
-    double f_w = 1.0;
-
-    return f_w/rho_w;
+double f_sat(double xx, double t, double Sw){
+    return (xx/4.0) * (1.0 - xx) + 0.5 * abs_perm(xx) * lambda_sum(lambda_w(Sw), lambda_n(1.0-Sw)) * t;
 }
 
 
@@ -254,7 +251,10 @@ std::vector<double> multiplyElemWiseVectors(const std::vector<double>& vector1, 
     return result;
 }
 
-
+bool isMultiple(double t, double dt_save, double tolerance = 1e-4) {
+    // Check if the absolute difference is within the specified tolerance
+    return std::abs(t - dt_save * std::round(t / dt_save)) < tolerance;
+}
 
 
 
@@ -288,7 +288,7 @@ int main(){
     // time
     double t = 0.0;
     double T = 1.0;
-    double dt = 0.05; // h*h;
+    double dt = 0.001; // MENOR QUE h*h/2.0;
     double dt_save = 0.25;
     cout << "dt = " << dt << endl;
 
@@ -323,7 +323,7 @@ int main(){
     // Solution vector - Sw
     vector<double> Sw_n(np);
     Sw_n = init_Vector(np);
-    for (int ii = 1; ii < Sw_n.size(); ii++) Sw_n[ii] = 0.0;  
+    for (int ii = 1; ii < Sw_n.size(); ii++) Sw_n[ii] = 0.5;  
     // for (int ii = 0; ii < Sw_n.size(); ii++) cout << Sw_n[ii] << ",";
     // cout << endl;
 
@@ -359,8 +359,8 @@ int main(){
     vector<vector<double>> Me(nen, vector<double>(nen));
     Me = init_Matrix(nen,nen);
 
-    // vector<vector<double>> Ke_noCoeff(nen, vector<double>(nen));
-    // Ke_noCoeff = init_Matrix(nen,nen);
+    vector<vector<double>> Ke_noCoeff(nen, vector<double>(nen));
+    Ke_noCoeff = init_Matrix(nen,nen);
 
     // vector<double> Fe_Pc(nen);
     // Fe_Pc = init_Vector(nen);
@@ -410,8 +410,7 @@ int main(){
 
 
     // Solver - IMPES
-    while (t <= T) { 
-        cout << "t = " << t << endl;  
+    while (t <= T+0.1) {  
 
         // RESOLVING FOR PRESSURE - pbar_np1 
 
@@ -444,7 +443,7 @@ int main(){
                 // Local source vector and stiffines matrix construction 
                 for (int j = 0; j < nen; j++){
 
-                    Fe[j] = Fe[j] + f_pr(xx, rho_w, rho_n)*shg[j][l]*w[l]*h/2.0; 
+                    Fe[j] = Fe[j] + f_pr(xx, t, Swe_h[l])*shg[j][l]*w[l]*h/2.0; 
                     
                     for (int i = 0; i < nen; i++){
                         
@@ -500,7 +499,7 @@ int main(){
         // RESOLVING FOR SATURATION - Sw_np1
 
         // restart global stiffines matrix and source vector
-        K = init_Matrix(np,np);
+        // K = init_Matrix(np,np);
         F = init_Vector(np);
         M = init_Matrix(np,np);   
 
@@ -525,12 +524,12 @@ int main(){
                     pBare_h[l] += shg[i][l]*pbar_np1[n*(nen-1) + i];
                 }
 
-                coeffVec_1[l] = abs_perm(xx)*lambda_w(Swe_h[l], rho_w);
+                coeffVec_1[l] = abs_perm(xx)*lambda_w(Swe_h[l]);
 
                 // Local source vector and stiffines matrix construction 
                 for (int j = 0; j < nen; j++){
 
-                    Fe[j] = Fe[j] + f_sat(xx, rho_w, rho_n)*shg[j][l]*w[l]*h/2.0; 
+                    Fe[j] = Fe[j] + f_sat(xx, t, Swe_h[l])*shg[j][l]*w[l]*h/2.0; 
                     
                     for (int i = 0; i < nen; i++){
                         
@@ -562,34 +561,112 @@ int main(){
                 F[n*(nen-1)+j] += Fe[j];
 
                 for (int i = 0; i < nen; i++){
-                    K[n*(nen-1)+i][n*(nen-1)+j] += Ke[i][j];
+                    M[n*(nen-1)+i][n*(nen-1)+j] += Me[i][j];
                 }
             }
         }
 
         // TODO: Boundary conditions?
 
-        double kappa_a = 1e9;
-        double kappa_b = 1e9;
-        double g_a = 0.0;   // pbar = 0.0 at boundaries
-        double g_b = 0.0;   // pbar = 0.0 at boundaries
-        double q_a = 0.0;
-        double q_b = 0.0;
+        kappa_a = 1e9;
+        kappa_b = 1e9;
+        g_a = 0.5;   // Sw = 0.5 at boundaries
+        g_b = 0.5;   // Sw = 0.5 at boundaries
+        q_a = 0.0;
+        q_b = 0.0;
 
-        K[0][0] += kappa_a;
-        K[np-1][np-1] += kappa_b;
+        M[0][0] += kappa_a;
+        M[np-1][np-1] += kappa_b;
 
         F[0] += kappa_a*g_a + q_a;
         F[np-1] += kappa_b*g_b + q_b;
 
-        // Solve linear system:  K * pbar_np1 = F
+        // Solve linear system:  M * Sw_np1 = F
 
-        solveLinearSystem(K, F, pbar_np1);
+        solveLinearSystem(M, F, Sw_np1);
 
 
         
 
+        // Save results
+        if (isMultiple(t,dt_save)){
 
+            cout << "t = " << t << endl;
+
+            // Saving Sw field
+
+            stringstream ss_Sw;
+            ss_Sw << "data_" << std::setw(4) << std::setfill('0') << nel << "t_" << std::fixed << std::setprecision(4) << t <<".csv";
+            string FileName_Sw = ss_Sw.str();
+
+            ofstream csvFile_Sw(FileName_Sw);
+            if (!csvFile_Sw.is_open()) {
+                std::cerr << "Error opening the new CSV file." << std::endl;
+                //return 1; // Return an error code
+            }
+
+            // Set precision to output all decimals
+            // csvFile << std::fixed << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+            csvFile_Sw << std::fixed << std::setprecision(16);  // Adjust precision as needed
+
+
+            // Write data to the CSV file
+            for (int i = 0; i < np; ++i) {
+                csvFile_Sw << xl[i];
+                if (i < np - 1) {
+                    csvFile_Sw << ",";
+                }
+            }
+            csvFile_Sw << endl;
+            for (int i = 0; i < np; ++i) {
+                csvFile_Sw << Sw_n[i];
+                if (i < np - 1) {
+                    csvFile_Sw << ",";
+                }
+            }
+            csvFile_Sw << endl;
+            csvFile_Sw.close();
+
+
+
+
+            // Saving pBar field
+
+            stringstream ss_pBar;
+            ss_pBar << "data_" << std::setw(4) << std::setfill('0') << nel << "t_" << std::fixed << std::setprecision(4) << t <<".csv";
+            string FileName_pBar = ss_pBar.str();
+
+            ofstream csvFile_pBar(FileName_pBar);
+            if (!csvFile_pBar.is_open()) {
+                std::cerr << "Error opening the new CSV file." << std::endl;
+                //return 1; // Return an error code
+            }
+
+            // Set precision to output all decimals
+            // csvFile << std::fixed << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+            csvFile_pBar << std::fixed << std::setprecision(16);  // Adjust precision as needed
+
+
+            // Write data to the CSV file
+            for (int i = 0; i < np; ++i) {
+                csvFile_pBar << xl[i];
+                if (i < np - 1) {
+                    csvFile_pBar << ",";
+                }
+            }
+            csvFile_pBar << endl;
+            for (int i = 0; i < np; ++i) {
+                csvFile_pBar << pbar_n[i];
+                if (i < np - 1) {
+                    csvFile_pBar << ",";
+                }
+            }
+            csvFile_pBar << endl;
+            csvFile_pBar.close();
+
+            std::cout << "CSV file written successfully." << std::endl;
+
+        }
 
         // updating results and time step
         for (int ii = 0; ii < Sw_n.size(); ii++) Sw_n[ii] = Sw_np1[ii];
@@ -599,6 +676,9 @@ int main(){
     } 
 
     cout << "OK!" << endl;
+
+    // print_Vector(Sw_n,np);
+    // print_Vector(pbar_n,np);
 
     return 0;
 }
