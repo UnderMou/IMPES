@@ -98,7 +98,7 @@ for i in range(len(filtered_files)):
     plt.title(file)
     plt.xlabel("x")
     plt.ylabel("u")
-    plt.ylim([-0.03, 1.3])
+    plt.ylim([0.4, 0.8])
     plt.legend()
     plt.savefig('plot'+file[:-4]+str(times[i])+'.jpeg', dpi=300, bbox_inches='tight')
     plt.close()

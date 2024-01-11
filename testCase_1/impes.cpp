@@ -251,7 +251,7 @@ std::vector<double> multiplyElemWiseVectors(const std::vector<double>& vector1, 
     return result;
 }
 
-bool isMultiple(double t, double dt_save, double tolerance = 1e-4) {
+bool isMultiple(double t, double dt_save, double tolerance = 1e-6) {
     // Check if the absolute difference is within the specified tolerance
     return std::abs(t - dt_save * std::round(t / dt_save)) < tolerance;
 }
@@ -276,7 +276,7 @@ int main(){
     // problem parameters
     double rho_w = 1.0;
     double rho_n = 1.0;
-    double phi = 0.5;
+    double phi = 1.0;
 
     // mesh
     int nel = 20;
@@ -288,7 +288,7 @@ int main(){
     // time
     double t = 0.0;
     double T = 1.0;
-    double dt = 0.0001; // LESSER THAN h*h/2.0;
+    double dt = 1e-4; // LESSER THAN h*h/2.0;
     double dt_save = 0.25;
     cout << "dt = " << dt << endl;
 
