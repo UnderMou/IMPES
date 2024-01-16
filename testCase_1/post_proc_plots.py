@@ -53,12 +53,12 @@ for i in range(len(filtered_files)):
     plt.grid(True)
 
     u = pBar_exact(x, times[i])
-    plt.plot(x,u,c = "b",label="$u(x,t) exata$")
+    plt.plot(x,u,c = "b",label="$\overline{p}(x,t) \: exata$")
     plt.scatter(x_projL2, u_projL2, c="r", marker='o', label="MEF", zorder=2) # linestyle='--'
     
     plt.title(file)
     plt.xlabel("x")
-    plt.ylabel("u")
+    plt.ylabel("$\overline{p}$")
     plt.ylim([-0.03,0.08])
     plt.legend()
     plt.savefig('plot'+file[:-4]+str(times[i])+'.jpeg', dpi=300, bbox_inches='tight')
@@ -92,12 +92,12 @@ for i in range(len(filtered_files)):
     plt.grid(True)
 
     u = Sw_exact(x, times[i])
-    plt.plot(x,u,c = "b",label="$u(x,t) exata$")
+    plt.plot(x,u,c = "b",label="$S_w(x,t) \: exata$")
     plt.scatter(x_projL2, u_projL2, c="r", marker='o', label="MEF", zorder=2) # linestyle='--'
     
     plt.title(file)
     plt.xlabel("x")
-    plt.ylabel("u")
+    plt.ylabel("$S_w$")
     plt.ylim([0.4, 0.8])
     plt.legend()
     plt.savefig('plot'+file[:-4]+str(times[i])+'.jpeg', dpi=300, bbox_inches='tight')

@@ -289,7 +289,7 @@ int main(){
     double t = 0.0;
     double T = 1.0;
     double dt = 1e-4; // LESSER THAN h*h/2.0;
-    double dt_save = 0.25;
+    double dt_save = 0.2;
     cout << "dt = " << dt << endl;
 
     // polynomials basis
@@ -520,11 +520,15 @@ int main(){
                 double xx = 0.0;
                 for (int i = 0; i < nen; i++){
                     xx += shg[i][l]*xl[n*(nen-1) + i];
-                    Swe_h[l] += shg[i][l]*Sw_n[n*(nen-1) + i];
-                    pBare_h[l] += shg[i][l]*pbar_np1[n*(nen-1) + i];
+                    // Swe_h[l] += shg[i][l]*Sw_n[n*(nen-1) + i];
+                    // pBare_h[l] += shg[i][l]*pbar_np1[n*(nen-1) + i];
                 }
 
-                coeffVec_1[l] = abs_perm(xx)*lambda_w(Swe_h[l]);
+                // coeffVec_1[l] = abs_perm(xx)*lambda_w(Swe_h[l]);
+
+                coeffVec_1[l] = abs_perm(xx)*lambda_w(Sw_n[n*(nen-1) + l]);
+                Swe_h[l] = Sw_n[n*(nen-1) + l];
+                pBare_h[l] = pbar_np1[n*(nen-1) + l];
 
                 // Local source vector and stiffines matrix construction 
                 for (int j = 0; j < nen; j++){
